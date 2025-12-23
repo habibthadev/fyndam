@@ -2,9 +2,25 @@ import mongoose from "mongoose";
 import { logger } from "./logger.js";
 import { env } from "./env.js";
 
-// Global cache for serverless environments
 let isConnected = false;
 let connectionPromise: Promise<void> | null = null;
+
+const setupEventListeners = () => {
+  mongoose.connection.removeAllListeners("disconnected");
+  mongoose.connection.removeAllListeners("error");
+
+  mongoose.connection.on("disconnected", () => {
+    logger.warn("Database disconnected");
+    isConnected = false;
+    connectionPromise = null;
+  });
+
+  mongoose.connection.on("error", (error) => {
+    logger.error({ error }, "Database connection error");
+    isConnected = false;
+    connectionPromise = null;
+  });
+};
 
 export const connectDatabase = async (): Promise<void> => {
   if (isConnected && mongoose.connection.readyState === 1) {
@@ -14,7 +30,8 @@ export const connectDatabase = async (): Promise<void> => {
 
   if (connectionPromise) {
     logger.info("Waiting for existing connection attempt");
-    return connectionPromise;
+    await connectionPromise;
+    return;
   }
 
   if (
@@ -35,14 +52,15 @@ export const connectDatabase = async (): Promise<void> => {
       mongoose.set("strictQuery", false);
 
       const options = {
-              maxPoolSize: 10,
-      minPoolSize: 2,
-      serverSelectionTimeoutMS: 3000,
-      socketTimeoutMS: 30000,
-      connectTimeoutMS: 3000,
-      waitQueueTimeoutMS: 5000,
-      retryWrites: true,
-      retryReads: true,
+        maxPoolSize: 10,
+        minPoolSize: 2,
+        serverSelectionTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+        connectTimeoutMS: 10000,
+        waitQueueTimeoutMS: 5000,
+        maxIdleTimeMS: 10000,
+        retryWrites: true,
+        retryReads: true,
       };
 
       logger.info("Initiating database connection...");
@@ -51,17 +69,7 @@ export const connectDatabase = async (): Promise<void> => {
       isConnected = true;
       logger.info("Database connected successfully");
 
-      mongoose.connection.on("disconnected", () => {
-        logger.warn("Database disconnected");
-        isConnected = false;
-        connectionPromise = null;
-      });
-
-      mongoose.connection.on("error", (error) => {
-        logger.error({ error }, "Database connection error");
-        isConnected = false;
-        connectionPromise = null;
-      });
+      setupEventListeners();
     } catch (error) {
       isConnected = false;
       connectionPromise = null;
@@ -73,7 +81,7 @@ export const connectDatabase = async (): Promise<void> => {
           mongoUri: env.MONGODB_URI.replace(
             /\/\/([^:]+):([^@]+)@/,
             "//$1:****@"
-          ), // Hide password in logs
+          ),
         },
         "Database connection failed"
       );
@@ -88,6 +96,7 @@ export const disconnectDatabase = async (): Promise<void> => {
   try {
     await mongoose.disconnect();
     isConnected = false;
+    connectionPromise = null;
     logger.info("Database disconnected successfully");
   } catch (error) {
     logger.error({ error }, "Database disconnection failed");
@@ -115,3 +124,9 @@ export const getDatabaseStatus = (): {
     readyStateCode,
   };
 };
+
+if (typeof process !== "undefined") {
+  process.on("SIGTERM", async () => {
+    await disconnectDatabase();
+  });
+}
