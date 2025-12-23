@@ -34,6 +34,16 @@ export const createApp = (): Express => {
   app.use(express.json({ limit: "20mb" }));
   app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
+  app.use(async (req, res, next) => {
+    try {
+      await connectDatabase();
+      next();
+    } catch (error) {
+      logger.error({ error }, "Database connection failed in middleware");
+      res.status(503).json({ error: "Service temporarily unavailable" });
+    }
+  });
+
   const recognitionRepository = new MongoRecognitionRepository();
   const musicRecognitionService = new AuddMusicRecognitionService();
 
@@ -69,20 +79,27 @@ export const createApp = (): Express => {
 
   app.use("/api/v1", apiRouter);
 
-  const CSS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.18.2/swagger-ui.min.css';
+  const CSS_URL =
+    "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.18.2/swagger-ui.min.css";
 
-  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, customCssUrl: CSS_URL ));
+  app.use(
+    "/api/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(openApiSpec, { customCssUrl: CSS_URL })
+  );
 
   app.use(errorHandler);
 
   return app;
 };
 
+const app = createApp();
+
+export default app;
+
 const startServer = async (): Promise<void> => {
   try {
     await connectDatabase();
-
-    const app = createApp();
 
     const port = env.PORT;
 
@@ -101,42 +118,3 @@ const startServer = async (): Promise<void> => {
 if (import.meta.url === `file://${process.argv[1]}`) {
   startServer();
 }
-
-// Serverless handler for Vercel
-/*
-let cachedApp: Express | null = null;
-
-const handler = async (req: any, res: any) => {
-  try {
-    // Ensure database is connected (will reuse existing connection)
-    logger.info("Ensuring database connection...");
-    await connectDatabase();
-    logger.info("Database ready");
-
-    // Create app if not cached
-    if (!cachedApp) {
-      logger.info("Creating Express app...");
-      cachedApp = createApp();
-      logger.info("Express app created successfully");
-    }
-
-    // Handle the request
-    return cachedApp(req, res);
-  } catch (error) {
-    logger.error(
-      { error, url: req?.url, method: req?.method },
-      "Serverless handler error"
-    );
-
-    // Send error response if headers not sent
-    if (!res.headersSent) {
-      return res.status(500).json({
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }
-};
-
-export default handler;
-*/
