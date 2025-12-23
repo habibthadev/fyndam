@@ -54,6 +54,13 @@ export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
 export const HealthResponseSchema = z.object({
   status: z.string(),
   timestamp: z.string(),
+  database: z
+    .object({
+      connected: z.boolean(),
+      state: z.string(),
+    })
+    .optional(),
+  author: z.string(),
 });
 
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;

@@ -212,10 +212,34 @@ export const openApiSpec = {
                     status: {
                       type: "string",
                       example: "ok",
+                      enum: ["ok", "degraded"],
                     },
                     timestamp: {
                       type: "string",
                       format: "date-time",
+                    },
+                    database: {
+                      type: "object",
+                      properties: {
+                        connected: {
+                          type: "boolean",
+                          example: true,
+                        },
+                        state: {
+                          type: "string",
+                          example: "connected",
+                          enum: [
+                            "disconnected",
+                            "connected",
+                            "connecting",
+                            "disconnecting",
+                          ],
+                        },
+                      },
+                    },
+                    author: {
+                      type: "string",
+                      example: "Habib Adebayo",
                     },
                   },
                 },

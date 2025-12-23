@@ -4,6 +4,7 @@ import { RecognitionController } from "../controllers/recognition-controller.js"
 import { HistoryController } from "../controllers/history-controller.js";
 import { StreamController } from "../controllers/stream-controller.js";
 import { env } from "../../infrastructure/config/env.js";
+import { getDatabaseStatus } from "../../infrastructure/config/database.js";
 
 const limiter = rateLimit({
   windowMs: env.RATE_LIMIT_WINDOW_MS,
@@ -35,7 +36,17 @@ export const createApiRouter = (
   router.get("/history/:id", historyController.getById);
 
   router.get("/health", (_req, res) => {
-    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+    const dbStatus = getDatabaseStatus();
+
+    res.status(200).json({
+      status: dbStatus.isConnected ? "ok" : "degraded",
+      timestamp: new Date().toISOString(),
+      database: {
+        connected: dbStatus.isConnected,
+        state: dbStatus.readyState,
+      },
+      author: "Habib Adebayo",
+    });
   });
 
   return router;

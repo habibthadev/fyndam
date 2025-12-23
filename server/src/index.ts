@@ -102,24 +102,37 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
 // Serverless handler for Vercel
 let cachedApp: Express | null = null;
-let dbConnected = false;
 
 const handler = async (req: any, res: any) => {
-  if (!dbConnected) {
-    try {
-      await connectDatabase();
-      dbConnected = true;
-    } catch (error) {
-      logger.error({ error }, "Failed to connect to database");
-      return res.status(500).json({ error: "Database connection failed" });
+  try {
+    // Ensure database is connected (will reuse existing connection)
+    logger.info("Ensuring database connection...");
+    await connectDatabase();
+    logger.info("Database ready");
+
+    // Create app if not cached
+    if (!cachedApp) {
+      logger.info("Creating Express app...");
+      cachedApp = createApp();
+      logger.info("Express app created successfully");
+    }
+
+    // Handle the request
+    return cachedApp(req, res);
+  } catch (error) {
+    logger.error(
+      { error, url: req?.url, method: req?.method },
+      "Serverless handler error"
+    );
+
+    // Send error response if headers not sent
+    if (!res.headersSent) {
+      return res.status(500).json({
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   }
-
-  if (!cachedApp) {
-    cachedApp = createApp();
-  }
-
-  return cachedApp(req, res);
 };
 
 export default handler;
