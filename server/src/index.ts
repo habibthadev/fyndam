@@ -15,7 +15,7 @@ import { HistoryController } from "./interface/controllers/history-controller.js
 import { StreamController } from "./interface/controllers/stream-controller.js";
 import { createApiRouter } from "./interface/routes/api-routes.js";
 import { errorHandler } from "./interface/middleware/error-handler.js";
-const { openApiSpec } = require("./interface/swagger/openapi-spec.js");
+import { openApiSpec } from "./interface/swagger/openapi-spec.js";
 
 export const createApp = (): Express => {
   const app = express();
