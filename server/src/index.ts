@@ -69,7 +69,9 @@ export const createApp = (): Express => {
 
   app.use("/api/v1", apiRouter);
 
-  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
+  const CSS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.18.2/swagger-ui.min.css';
+
+  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, customCssUrl: CSS_URL ));
 
   app.use(errorHandler);
 
@@ -101,6 +103,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 // Serverless handler for Vercel
+/*
 let cachedApp: Express | null = null;
 
 const handler = async (req: any, res: any) => {
@@ -136,3 +139,4 @@ const handler = async (req: any, res: any) => {
 };
 
 export default handler;
+*/
