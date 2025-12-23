@@ -35,11 +35,14 @@ export const connectDatabase = async (): Promise<void> => {
       mongoose.set("strictQuery", false);
 
       const options = {
-        bufferCommands: false,
-        maxPoolSize: 10,
-        serverSelectionTimeoutMS: 10000,
-        socketTimeoutMS: 45000,
-        family: 4,
+              maxPoolSize: 10,
+      minPoolSize: 2,
+      serverSelectionTimeoutMS: 3000,
+      socketTimeoutMS: 30000,
+      connectTimeoutMS: 3000,
+      waitQueueTimeoutMS: 5000,
+      retryWrites: true,
+      retryReads: true,
       };
 
       logger.info("Initiating database connection...");
