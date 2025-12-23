@@ -2,7 +2,9 @@ import mongoose from "mongoose";
 import { logger } from "./logger.js";
 import { env } from "./env.js";
 
+// Global cache for serverless environments
 let isConnected = false;
+let connectionPromise: Promise<void> | null = null;
 
 export const connectDatabase = async (): Promise<void> => {
   if (isConnected && mongoose.connection.readyState === 1) {
@@ -10,21 +12,73 @@ export const connectDatabase = async (): Promise<void> => {
     return;
   }
 
-  try {
-    mongoose.set("strictQuery", false);
-
-    await mongoose.connect(env.MONGODB_URI, {
-      bufferCommands: false,
-      maxPoolSize: 10,
-    });
-
-    isConnected = true;
-    logger.info("Database connected successfully");
-  } catch (error) {
-    isConnected = false;
-    logger.error({ error }, "Database connection failed");
-    throw error;
+  if (connectionPromise) {
+    logger.info("Waiting for existing connection attempt");
+    return connectionPromise;
   }
+
+  if (
+    mongoose.connection.readyState === 2 ||
+    mongoose.connection.readyState === 3
+  ) {
+    logger.warn("Connection in transitional state, resetting...");
+    try {
+      await mongoose.disconnect();
+    } catch (error) {
+      logger.error({ error }, "Error disconnecting stale connection");
+    }
+    isConnected = false;
+  }
+
+  connectionPromise = (async () => {
+    try {
+      mongoose.set("strictQuery", false);
+
+      const options = {
+        bufferCommands: false,
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+        family: 4,
+      };
+
+      logger.info("Initiating database connection...");
+      await mongoose.connect(env.MONGODB_URI, options);
+
+      isConnected = true;
+      logger.info("Database connected successfully");
+
+      mongoose.connection.on("disconnected", () => {
+        logger.warn("Database disconnected");
+        isConnected = false;
+        connectionPromise = null;
+      });
+
+      mongoose.connection.on("error", (error) => {
+        logger.error({ error }, "Database connection error");
+        isConnected = false;
+        connectionPromise = null;
+      });
+    } catch (error) {
+      isConnected = false;
+      connectionPromise = null;
+      logger.error(
+        {
+          error,
+          errorMessage:
+            error instanceof Error ? error.message : "Unknown error",
+          mongoUri: env.MONGODB_URI.replace(
+            /\/\/([^:]+):([^@]+)@/,
+            "//$1:****@"
+          ), // Hide password in logs
+        },
+        "Database connection failed"
+      );
+      throw error;
+    }
+  })();
+
+  return connectionPromise;
 };
 
 export const disconnectDatabase = async (): Promise<void> => {
