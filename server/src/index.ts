@@ -99,3 +99,27 @@ const startServer = async (): Promise<void> => {
 if (import.meta.url === `file://${process.argv[1]}`) {
   startServer();
 }
+
+// Serverless handler for Vercel
+let cachedApp: Express | null = null;
+let dbConnected = false;
+
+const handler = async (req: any, res: any) => {
+  if (!dbConnected) {
+    try {
+      await connectDatabase();
+      dbConnected = true;
+    } catch (error) {
+      logger.error({ error }, "Failed to connect to database");
+      return res.status(500).json({ error: "Database connection failed" });
+    }
+  }
+
+  if (!cachedApp) {
+    cachedApp = createApp();
+  }
+
+  return cachedApp(req, res);
+};
+
+export default handler;
