@@ -14,7 +14,7 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
-  ALLOWED_ORIGINS: z.string().default("http://localhost:5173"),
+  ALLOWED_ORIGINS: z.string().default("https://fyndam.vercel.app"),
   MAX_FILE_SIZE_MB: z
     .string()
     .transform(Number)
